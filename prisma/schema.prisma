@@ -1,0 +1,103 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Enterprise {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  domain    String   @unique // e.g., "company.com"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users User[]
+  posts Post[]
+
+  @@map("enterprises")
+}
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  password     String
+  name         String
+  avatar       String?
+  enterpriseId String
+  role         UserRole  @default(EMPLOYEE)
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  enterprise Enterprise @relation(fields: [enterpriseId], references: [id], onDelete: Cascade)
+  posts      Post[]
+  likes      Like[]
+  comments   Comment[]
+
+  @@index([enterpriseId])
+  @@map("users")
+}
+
+model Post {
+  id           String      @id @default(cuid())
+  content      String
+  images       String[]    @default([])
+  authorId     String
+  enterpriseId String
+  likeCount    Int         @default(0)
+  commentCount Int         @default(0)
+  isPinned     Boolean     @default(false)
+  pinnedAt     DateTime?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  author     User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  enterprise Enterprise @relation(fields: [enterpriseId], references: [id], onDelete: Cascade)
+  likes      Like[]
+  comments   Comment[]
+
+  @@index([enterpriseId, createdAt])
+  @@index([enterpriseId, isPinned, likeCount])
+  @@index([createdAt, likeCount]) // For auto-pinning query
+  @@map("posts")
+}
+
+model Like {
+  id     String @id @default(cuid())
+  userId String
+  postId String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, postId])
+  @@index([postId])
+  @@map("likes")
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  content   String
+  authorId  String
+  postId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  author User @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  post   Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@index([postId, createdAt])
+  @@map("comments")
+}
+
+enum UserRole {
+  ADMIN
+  EMPLOYEE
+}
